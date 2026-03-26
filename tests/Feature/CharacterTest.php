@@ -1,102 +1,173 @@
 <?php
 
-namespace Tests\Feature;
-
 use App\Models\Character;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use Database\Seeders\CharacterSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
+uses(RefreshDatabase::class);
 
-    uses(RefreshDatabase::class);
+  beforeEach(function () {
+    $this->seed(CharacterSeeder::class);
+   });
 
-    beforeEach(function () {
-        $this->seed(CharacterSeeder::class);
-    });
+  test('index devuelve 200', function () {
+    $this->getJson('/api/characters')
+        ->assertStatus(200);
+  });
 
-    test('todos los personajes', function () {
-        $this->getJson('/api/characters')
-            ->assertStatus(200)
-            ->assertJsonStructure([
-                'data' => [
-                    '*' => ['id', 'name', 'series', 'gender'] 
-                ]
-            ]); 
-    });
+   test('index regresa data como arreglo', function () {
+    $this->getJson('/api/characters')
+        ->assertStatus(200)
+        ->assertJsonIsArray('data');
+  });
 
-    test('un personaje', function () {
-        $character = Character::query()->firstOrFail();
+   test('index tiene la estructura esperada', function () {
+    $this->getJson('/api/characters')
+        ->assertStatus(200)
+        ->assertJsonStructure([
+            'data' => [
+                '*' => ['id', 'name', 'series', 'gender'],
+            ],
+        ]);
+  });
 
-        $this->getJson('/api/characters/' . $character->id)
-            ->assertStatus(200)
-            ->assertJson([
-                'data' => [
-                    'id' => $character->id,
-                    'name' => $character->name,
-                    'series' => $character->series,
-                    'gender' => $character->gender,
-                ]
-            ]);
-    });
+    test('index contiene un fragmento esperado', function () {
+    $character = Character::firstOrFail();
 
-    test('crear personaje', function () {
-        $data = [
-            'name' => 'Izuku Midoriya',
-            'series' => 'My Hero Academia',
+    $this->getJson('/api/characters')
+        ->assertStatus(200)
+        ->assertJsonFragment([
+            'name' => $character->name,
+            'series' => $character->series,
+            'gender' => $character->gender,
+        ]);
+  });
+
+  test('show devuelve 200', function () {
+    $character = Character::firstOrFail();
+
+    $this->getJson('/api/characters/' . $character->id)
+        ->assertStatus(200);
+   });
+
+  test('show regresa un objeto', function () {
+    $character = Character::firstOrFail();
+
+    $this->getJson('/api/characters/' . $character->id)
+        ->assertStatus(200)
+        ->assertJsonIsObject('data');
+     });
+
+  test('show regresa el json exacto', function () {
+    $character = Character::firstOrFail();
+
+     $this->getJson('/api/characters/' . $character->id)
+        ->assertStatus(200)
+        ->assertJson([
+            'data' => [
+                'id' => $character->id,
+                'name' => $character->name,
+                'series' => $character->series,
+                'gender' => $character->gender,
+            ],
+        ]);
+   });
+
+   test('show de un personaje q no existe regresa 404', function () {
+    $this->getJson('/api/characters/99')
+        ->assertStatus(404);
+  });
+
+   test('store regresa 201', function () {
+    $data = [
+        'name' => 'Izuku Midoriya',
+        'series' => 'My Hero Academia',
+        'gender' => 'Male',
+    ];
+
+    $this->postJson('/api/characters', $data)
+        ->assertStatus(201);
+   });
+
+   test('store regresa json esperado', function () {
+    $data = [
+        'name' => 'Izuku Midoriya',
+        'series' => 'My Hero Academia',
+        'gender' => 'Male',
+    ];
+
+    $this->postJson('/api/characters', $data)
+        ->assertStatus(201)
+        ->assertJson([
+            'data' => $data,
+            'message' => 'personaje creado correctamente',
+        ]);
+  });
+
+  test('store tiene un fragmento esperado', function () {
+    $data = [
+        'name' => 'Tanjiro Kamado',
+        'series' => 'Demon Slayer',
+        'gender' => 'Male',
+    ];
+
+    $this->postJson('/api/characters', $data)
+        ->assertStatus(201)
+        ->assertJsonFragment([
+            'name' => 'Tanjiro Kamado',
+            'series' => 'Demon Slayer',
             'gender' => 'Male',
-        ];
+            'message' => 'personaje creado correctamente',
+        ]);
+ });
 
-        $this->postJson('/api/characters', $data)
-            ->assertStatus(201)
-            ->assertJson([
-                'data' => $data,
-                'message' => 'personaje creado correctamente'
-            ]);
-    });
+  test('update regresa 200', function () {
+    $character = Character::firstOrFail();
 
-    test('actualizar personaje', function () {
-        $character = Character::query()->firstOrFail();
+    $data = [
+        'name' => 'Eren Jaeger',
+        'series' => 'Attack on Titan',
+        'gender' => 'Male',
+    ];
 
-        $data = [
-            'name' => 'Eren Jaeger',
-            'series' => 'Attack on Titan',
-            'gender' => 'Male',
-        ];
+    $this->putJson('/api/characters/' . $character->id, $data)
+        ->assertStatus(200);
+  });
 
-        $this->putJson('/api/characters/' . $character->id, $data)
-            ->assertStatus(200)
-            ->assertJson([
-                'data' => array_merge(['id' => $character->id], $data),
-                'message' => 'personaje actualizado correctamente'
-            ]);
-    });
+    test('update regresa json esperado', function () {
 
-    test('eliminar personaje', function () {
-        $character = Character::query()->firstOrFail();
+    $character = Character::firstOrFail();
 
-        $this->deleteJson('/api/characters/' . $character->id)
-            ->assertStatus(200)
-            ->assertJson([
-                'message' => 'personaje eliminado correctamente'
-            ]);
+    $data = [
+        'name' => 'Eren Jaeger',
+        'series' => 'Attack on Titan',
+        'gender' => 'Male',
+    ];
 
-        $this->getJson('/api/characters/' . $character->id)
-            ->assertStatus(404);
-    });
+    $this->putJson('/api/characters/' . $character->id, $data)
+        ->assertStatus(200)
+        ->assertJson([
+            'data' => array_merge(['id' => $character->id], $data),
+            'message' => 'personaje actualizado correctamente',
+        ]);
+  });
 
-    test('es un objeto', function(){
-        $character = Character::first();
-    
-        $this->getJson('/api/characters' .  $character->id)
-        ->assertJsonIsObject()
+   test('delete regresa mensaje esperado', function () {
+    $character = Character::firstOrFail();
 
-    });
+    $this->deleteJson('/api/characters/' . $character->id)
+        ->assertStatus(200)
+        ->assertJson([
+            'message' => 'personaje eliminado correctamente',
+        ]);
+   });
 
-    test('estructura exacta', function (){
-    $data=['id' => $character->id, 'name' => $character->name, 'series' => $character->series, 'gender' => $character->gender];
-    $response = $this->postJson('/api/characters/', $data);
-    $response->assertExactJson([
-        'data' => $data,
-        'message' => 'personaje creado correctamente'
-    ]);
-    });
+   test('delete elimina el personaje y regresa 404 al buscarlo', function () {
+    $character = Character::firstOrFail();
+
+    $this->deleteJson('/api/characters/' . $character->id)
+        ->assertStatus(200);
+
+    $this->getJson('/api/characters/' . $character->id)
+        ->assertStatus(404);
+  });
